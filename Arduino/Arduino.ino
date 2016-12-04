@@ -171,7 +171,7 @@ void checkMotion(int pin, unsigned long &lastTs) {
 // PULLUP is enabled, so LOW is on, HIGH is off
 void checkDoor(int pin, bool &prevState) {
   bool reading = digitalRead(pin);
-  if (reading == LOW && prevState==HIGH) {
+  if (reading == HIGH && prevState==LOW) {
 #ifdef DEBUG
     Serial.println("One of the doors was just opened: ");
     Serial.println(pin);
@@ -189,12 +189,22 @@ void checkLightStatus()
   // Check if motion sensor time was called
   unsigned long NorthMiddle = max(envData.lastMotionTsNorth, envData.lastMotionTsMiddle);
   unsigned long lastMotion = max(NorthMiddle, envData.lastMotionTsSouth);
+#ifdef DEBUG
+  Serial.print("North-middle ts: ");
+  Serial.println(NorthMiddle);
+  Serial.print("Last Motion ts: ");
+  Serial.println(lastMotion);
+  Serial.print("millis passed: ");
+  Serial.println((millis() - lastMotion));
+  Serial.print("Configured ON time: ");
+  Serial.println(conf.motionLightOnTime);
+#endif
   if ((millis() - lastMotion) < conf.motionLightOnTime) {
     desiredLight = HIGH;
   }
   
   // Check if door sensor time was called
-  if ((millis() - envData.lastDoorEventTs) < conf.motionLightOnTime) {
+  if ((millis() - envData.lastDoorEventTs) < conf.doorLightOnTime) {
     desiredLight = HIGH;
   }
   
@@ -283,18 +293,18 @@ void processSetCommands()
       net.sendResponse("ERROR");
     }
   } else if (net.assertCommandStarts("setMotionLightOnSec:", buf)) {
-    unsigned int tmp = strtol(buf, NULL, 10);
+    unsigned long tmp = strtol(buf, NULL, 10);
     if (tmp > 0 && tmp < 3600) {
-      conf.motionLightOnTime = tmp*1000;
+      conf.motionLightOnTime = tmp*1000UL;
       saveConfig();
       net.sendResponse("OK");
     } else {
       net.sendResponse("ERROR");
     }
   } else if (net.assertCommandStarts("setDoorLightOnSec:", buf)) {
-    unsigned int tmp = strtol(buf, NULL, 10);
+    unsigned long tmp = strtol(buf, NULL, 10);
     if (tmp > 0 && tmp < 3600) {
-      conf.doorLightOnTime = tmp*1000;
+      conf.doorLightOnTime = tmp*1000UL;
       saveConfig();
       net.sendResponse("OK");
     } else {
@@ -302,7 +312,7 @@ void processSetCommands()
     }
   } else if (net.assertCommandStarts("setDhtReadSec:", buf)) {
     unsigned int tmp = strtol(buf, NULL, 10);
-    if (tmp > 0 && tmp < 3600) {
+    if (tmp > 0 && tmp < 65) { // limit of int size
       conf.dhtReadInterval = tmp*1000;
       saveConfig();
       net.sendResponse("OK");
